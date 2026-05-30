@@ -1,0 +1,14 @@
+[
+    {
+        "Account number": 1,
+        "name": "a",
+        "pin": 1,
+        "balance": 1
+    },
+    {
+        "Account number": 2,
+        "name": "as",
+        "pin": 12,
+        "balance": 12
+    }
+]

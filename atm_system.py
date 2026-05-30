@@ -1,8 +1,10 @@
+import json
 class User:
     def __init__(self):
         self.name=""
         self.balance=0
         self.pin=""
+
 
     def user_menu(self):
         while True:
@@ -15,25 +17,28 @@ class User:
                 self.check_balance()
             elif user_input=='4':
                 self.change_pin()
-
             elif user_input=='5':
-                self.delete_account()
+                deleted=self.delete_account()
+                if deleted:
+                    return
+
             elif user_input=='6':
-                print("Thank you for using this program")
-                break
+                self.current_user = None
+                print("Logged out successfully")
+
             else:
                 print("invalid choice")
 
     def deposit(self):
         while True:
-
             amount=input("Enter amount:")
             if amount.isnumeric():
                 amount=int(amount)
 
                 if amount > 0:
-                    self.balance+=amount
-                    print("Deposit successful\nYour balance is : ",self.balance)
+                    self.current_user['balance']+=amount
+                    self.save_users()
+                    print("Deposit successful\nYour balance is : ",self.current_user['balance'])
 
                 elif amount <= 0:
                     print("Please enter a positive number")
@@ -57,11 +62,12 @@ class User:
             amount=input("Enter amount to withdraw: ")
             if amount.isnumeric():
                 amount=int(amount)
-                if amount > self.balance:
-                    print("insufficient funds\nYour balance is : ",self.balance)
-                elif amount <= self.balance:
-                    self.balance-=amount
-                    print("Withdraw successful\nYour balance is : ",self.balance)
+                if amount > self.current_user['balance']:
+                    print("insufficient funds\nYour balance is : ",self.current_user['balance'])
+                elif amount <= self.current_user['balance']:
+                    self.current_user['balance']-=amount
+                    self.save_users()
+                    print("Withdraw successful\nYour balance is : ",self.current_user['balance'])
             else:
                 print("Please enter a number")
             while True:
@@ -75,30 +81,42 @@ class User:
                     continue
 
     def check_balance(self):
-        print("Your balance is : ",self.balance)
+        print("Your balance is : ",self.current_user['balance'])
         user_choice = input("press any key to go back")
         return
 
     def change_pin(self):
-        current_pin=input("Enter your current pin: ")
+
+        current_pin = input("Enter your current pin: ")
+
         if current_pin.isnumeric():
-            current_pin=int(current_pin)
-            for cpin in self.users:
-                if cpin['pin'] == current_pin:
-                    while True:
-                        new_pin=input("Enter your new pin: ")
-                        if new_pin.isnumeric():
-                            new_pin=int(new_pin)
-                            cpin['pin']=new_pin
-                            self.pin=new_pin
-                            print("pin changed successfully")
-                            return
-                        else:
-                            print("Please enter a valid pin")
+
+            current_pin = int(current_pin)
+
+            if self.current_user['pin'] == current_pin:
+
+                while True:
+
+                    new_pin = input("Enter your new pin: ")
+
+                    if new_pin.isnumeric():
+
+                        new_pin = int(new_pin)
+
+                        self.current_user['pin'] = new_pin
+                        self.save_users()
+                        print("PIN changed successfully")
+
+                        return
+
+                    else:
+                        print("Please enter a valid pin")
+
             else:
-                print("Pin mismatch , please enter a valid pin")
+                print("PIN mismatch, please enter a valid pin")
+
         else:
-            print("Please enter a numeric pin ")
+            print("Please enter a numeric pin")
 
 
 
@@ -108,23 +126,26 @@ class User:
             pin = input("Enter your pin: ")
             if pin.isnumeric():
                 pin = int(pin)
-                for user in self.users:
-                    if user['pin'] == pin:
-                        print("success")
-                        while True:
-                            choice = input("do you want to delete account(y/n) ").lower()
-                            if choice == "y":
-                                self.users.remove(user)
-                                print("deleting account")
-                                self.atm_menu()
-                            if choice == "n":
-                                return
-                            else:
-                                print("please enter a y or n")
-                                continue
-                    else:
-                        print("Account credentials doesn't match")
-                        return
+
+                if self.current_user['pin'] == pin:
+                    print("correct PIN")
+                    while True:
+                        choice = input("do you want to delete account(y/n) ").lower()
+                        if choice == "y":
+                            self.users.remove(self.current_user)
+                            self.save_users()
+                            self.current_user=None
+                            print("account deleted")
+                            return True
+                        if choice == "n":
+                            print("account deletetion cancelled")
+                            return  False
+                        else:
+                            print("please enter a y or n")
+                            continue
+                else:
+                    print("Account credentials doesn't match")
+                    return
             else:
                 print("Please enter a valid pin")
 
@@ -136,8 +157,19 @@ class Atm(User):
         self.name=''
         self.pin=''
         self.balance=0
-        self.account_no=0
-        self.users=[]
+        self.current_user=None
+        try:
+            with open("atm.json","r") as f:
+                self.users=json.load(f)
+        except FileNotFoundError:
+            self.users=[]
+        if self.users:
+            self.account_no=max(user["Account number"] for user in self.users)
+        else:
+            self.account_no=0
+    def save_users(self):
+        with open("atm.json","w") as f:
+            json.dump(self.users,f,indent=4)
     def atm_menu(self):
         while True:
             user_input=input("1.Create Account\n2.Log in \n3.Exit\nEnter your choice: ")
@@ -185,7 +217,8 @@ class Atm(User):
             "balance":amount,
         }
         self.users.append(user)
-        print("Account created successfully\n" 'Your account number is',self.account_no,"\nYour balance is : ",self.balance)
+        self.save_users()
+        print("Account created successfully\n" 'Your account number is',self.account_no,"\nYour balance is : ",self.users[0]['balance'])
         print(self.users)
 
     def login(self):
@@ -197,6 +230,7 @@ class Atm(User):
                 pin=int(pin)
                 for account in self.users:
                     if account['Account number'] == account_no and account['pin'] == pin:
+                        self.current_user=account
                         print(account['name'],"account number",account_no,"is logged in")
                         self.user_menu()
                         break
